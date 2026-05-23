@@ -316,6 +316,11 @@ def load_and_prepare_data():
         for zid, zname in famous.items():
             zone_lookup.loc[zone_lookup['zone_id'] == zid, 'zone_name'] = zname
 
+    # Cast ke int dulu biar tipe match dengan zone_lookup
+    df['pickup_location_id']  = pd.to_numeric(df['pickup_location_id'],  errors='coerce').astype('Int64')
+    df['dropoff_location_id'] = pd.to_numeric(df['dropoff_location_id'], errors='coerce').astype('Int64')
+    zone_lookup['zone_id'] = zone_lookup['zone_id'].astype('Int64')
+
     df = df.merge(
         zone_lookup.rename(columns={'zone_id':'pickup_location_id','zone_name':'pickup_zone_name','borough':'pickup_borough'}),
         on='pickup_location_id', how='left'
