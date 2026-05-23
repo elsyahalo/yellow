@@ -652,20 +652,15 @@ with tab_eda:
     st.markdown("#### 4.4.2 Distribusi Data (Boxplot)")
     c_box = st.columns(3)
     box_colors_hex = ['#7F77DD','#1D9E75','#EF9F27','#D85A30','#534AB7']
-    def hex_to_rgba(hex_color, alpha=0.33):
-    hex_color = hex_color.lstrip('#')
-    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-    return f"rgba({r},{g},{b},{alpha})"
-
-for i, (col_name, bcolor) in enumerate(zip(num_cols, box_colors_hex)):
-    with c_box[i % 3]:
-        fig_box = go.Figure()
-        fig_box.add_trace(go.Box(
-            y=df[col_name].dropna(), name=col_name,
-            marker_color=bcolor, line_color=bcolor,
-            boxmean=True,
-            fillcolor=hex_to_rgba(bcolor, 0.33),
-        ))
+    for i, (col_name, bcolor) in enumerate(zip(num_cols, box_colors_hex)):
+        with c_box[i % 3]:
+            fig_box = go.Figure()
+            fig_box.add_trace(go.Box(
+                y=df[col_name].dropna(), name=col_name,
+                marker_color=bcolor, line_color=bcolor,
+                boxmean=True,
+                fillcolor=bcolor + '55',
+            ))
             med_val = df[col_name].median()
             fig_box.update_layout(
                 **PLOTLY_LAYOUT,
