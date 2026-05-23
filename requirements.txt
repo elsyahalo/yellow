@@ -4,3 +4,6 @@ numpy
 plotly
 scikit-learn
 matplotlib
+google-cloud-bigquery
+google-auth
+db-dtypes
