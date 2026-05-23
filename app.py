@@ -15,6 +15,10 @@ from plotly.subplots import make_subplots
 import warnings
 warnings.filterwarnings("ignore")
 
+import json
+from google.oauth2 import service_account
+from google.cloud import bigquery
+
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing  import LabelEncoder, StandardScaler
 from sklearn.cluster        import KMeans
@@ -216,58 +220,49 @@ def fix_axes(fig):
     return fig
 
 # ── DATA LOADING & FEATURE ENGINEERING ───────────────────────
-# Mengikuti IPYNB: stratified sampling per hari, filter ketat, zone lookup BigQuery
+# Load langsung dari BigQuery pakai service account dari st.secrets
 @st.cache_data(show_spinner=False)
 def load_and_prepare_data():
-    np.random.seed(42)
-    N = 500_000
+    # Ambil credentials dari Streamlit secrets
+    creds_dict = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
+    credentials = service_account.Credentials.from_service_account_info(
+        creds_dict,
+        scopes=["https://www.googleapis.com/auth/bigquery.readonly"],
+    )
+    client = bigquery.Client(credentials=credentials, project=creds_dict["project_id"])
 
-    # Stratified per hari (sesuai IPYNB: ~1.369 per hari × 365 hari)
-    LIMIT_PER_DAY = N // 365  # ~1369
+    query = """
+        SELECT
+            pickup_datetime, dropoff_datetime,
+            trip_distance, fare_amount, total_amount,
+            passenger_count, rate_code,
+            pickup_location_id, dropoff_location_id, payment_type
+        FROM `bigquery-public-data.new_york_taxi_trips.tlc_yellow_trips_2022`
+        WHERE
+            trip_distance BETWEEN 0.1 AND 100
+            AND fare_amount BETWEEN 2.5 AND 500
+            AND total_amount BETWEEN 2.5 AND 600
+            AND passenger_count BETWEEN 1 AND 6
+            AND pickup_datetime IS NOT NULL
+            AND dropoff_datetime IS NOT NULL
+        ORDER BY RAND()
+        LIMIT 500000
+    """
+    raw_df = client.query(query).to_dataframe()
+    df = raw_df.copy()
 
-    # Generate pickup_datetime terdistribusi merata per hari (stratified)
-    start = pd.Timestamp("2022-01-01")
-    days = np.random.randint(0, 365, N)
-    seconds_in_day = np.random.randint(0, 86400, N)
-    pickup_ts = pd.to_datetime('2022-01-01') + pd.to_timedelta(days, unit='D') + pd.to_timedelta(seconds_in_day, unit='s')
+    # Konversi tipe data datetime (sesuai IPYNB)
+    df['pickup_datetime']  = pd.to_datetime(df['pickup_datetime'])
+    df['dropoff_datetime'] = pd.to_datetime(df['dropoff_datetime'])
+    df['trip_distance']    = df['trip_distance'].astype(float)
+    df['fare_amount']      = df['fare_amount'].astype(float)
+    df['total_amount']     = df['total_amount'].astype(float)
 
-    # Filter sesuai IPYNB: fare_amount > 0 & < 500, trip_distance > 0 & < 200,
-    # passenger_count > 0 & <= 6, total_amount > 0, durasi 1-180 menit
-    trip_distance = np.random.lognormal(mean=0.85, sigma=0.9, size=N).clip(0.1, 60)
-    trip_duration_minutes = (trip_distance * 4.2 + np.random.normal(0, 5, N)).clip(1, 180)
-    passenger_count = np.random.choice([1,2,3,4,5,6], N, p=[0.55,0.20,0.10,0.07,0.05,0.03])
-    rate_code = np.random.choice([1,2,3,4,5,6], N, p=[0.82,0.08,0.04,0.02,0.02,0.02])
-
-    base_fare = (trip_distance * 2.5 + trip_duration_minutes * 0.5 + np.random.normal(3.5, 2.0, N))
-    jfk_mask = rate_code == 2
-    base_fare[jfk_mask] += 17.5
-    fare_amount = base_fare.clip(2.5, 200)
-
-    tips = np.where(np.random.random(N) < 0.65, fare_amount * np.random.uniform(0.10, 0.25, N), 0)
-    total_amount = (fare_amount + tips + 0.5 + 0.3).clip(3, 250)
-
-    loc_weights = np.ones(263)
-    loc_weights[0:50] = 5
-    loc_weights /= loc_weights.sum()
-    pickup_location_id  = np.random.choice(np.arange(1,264), N, p=loc_weights)
-    dropoff_location_id = np.random.choice(np.arange(1,264), N, p=loc_weights)
-
-    # Payment type sesuai IPYNB mapping: 1=Credit Card, 2=Cash, 3=No Charge, 4=Dispute, 5=Unknown, 6=Voided Trip
-    payment_type = np.random.choice([1,2,3,4,5,6], N, p=[0.672,0.296,0.016,0.010,0.004,0.002])
-
-    df = pd.DataFrame({
-        'pickup_datetime'    : pickup_ts,
-        'dropoff_datetime'   : pickup_ts + pd.to_timedelta(trip_duration_minutes * 60, unit='s'),
-        'trip_distance'      : trip_distance,
-        'trip_duration_minutes': trip_duration_minutes,
-        'passenger_count'    : passenger_count,
-        'rate_code'          : rate_code,
-        'pickup_location_id' : pickup_location_id,
-        'dropoff_location_id': dropoff_location_id,
-        'payment_type'       : payment_type,
-        'fare_amount'        : fare_amount,
-        'total_amount'       : total_amount,
-    })
+    # Hitung trip_duration_minutes jika belum ada
+    if 'trip_duration_minutes' not in df.columns:
+        df['trip_duration_minutes'] = (
+            df['dropoff_datetime'] - df['pickup_datetime']
+        ).dt.total_seconds() / 60
 
     # Filter durasi (sesuai IPYNB: >= 1 menit dan <= 180 menit)
     df = df[(df['trip_duration_minutes'] >= 1) & (df['trip_duration_minutes'] <= 180)].copy()
@@ -295,24 +290,31 @@ def load_and_prepare_data():
     df['is_rush_hour'] = df['pickup_hour'].isin([7,8,9,17,18,19]).astype(int)
     df['is_night']     = ((df['pickup_hour'] >= 20) | (df['pickup_hour'] < 6)).astype(int)
 
-    # Zone lookup (simulasi BigQuery zone_lookup)
-    boroughs = ['Manhattan','Brooklyn','Queens','Bronx','Staten Island','EWR']
-    zone_lookup = pd.DataFrame({
-        'zone_id'  : np.arange(1, 264),
-        'zone_name': [f"Zone-{i}" for i in range(1, 264)],
-        'borough'  : np.random.choice(boroughs, 263, p=[0.40,0.25,0.20,0.10,0.03,0.02]),
-    })
-    # Zona terkenal sesuai data NYC TLC asli
-    famous = {
-        1:'JFK Airport',        2:'LaGuardia Airport',  3:'Midtown Center',
-        4:'Upper East Side N',  5:'Penn Station/MSG',   6:'Times Sq/Theatre District',
-        7:'Upper West Side N',  8:'Gramercy',           9:'Battery Park',
-        10:'Central Park',      11:'Harlem',            12:'Lincoln Square E',
-        13:'Lenox Hill West',   14:'East Harlem S',     15:'East Village',
-        16:'Lower East Side',   17:'Financial District N', 18:'Sutton Place/Turtle Bay N',
-    }
-    for zid, zname in famous.items():
-        zone_lookup.loc[zone_lookup['zone_id'] == zid, 'zone_name'] = zname
+    # Zone lookup — simulasi zona NYC (BigQuery taxi_zone tidak di-join untuk efisiensi)
+    if False:
+        zone_lookup = zone_df.rename(columns={
+            zone_df.columns[0]: 'zone_id',
+            zone_df.columns[1]: 'zone_name',
+            zone_df.columns[2]: 'borough',
+        })[['zone_id','zone_name','borough']].copy()
+        zone_lookup['zone_id'] = zone_lookup['zone_id'].astype(int)
+    else:
+        boroughs = ['Manhattan','Brooklyn','Queens','Bronx','Staten Island','EWR']
+        zone_lookup = pd.DataFrame({
+            'zone_id'  : np.arange(1, 264),
+            'zone_name': [f"Zone-{i}" for i in range(1, 264)],
+            'borough'  : np.random.choice(boroughs, 263, p=[0.40,0.25,0.20,0.10,0.03,0.02]),
+        })
+        famous = {
+            1:'JFK Airport',        2:'LaGuardia Airport',  3:'Midtown Center',
+            4:'Upper East Side N',  5:'Penn Station/MSG',   6:'Times Sq/Theatre District',
+            7:'Upper West Side N',  8:'Gramercy',           9:'Battery Park',
+            10:'Central Park',      11:'Harlem',            12:'Lincoln Square E',
+            13:'Lenox Hill West',   14:'East Harlem S',     15:'East Village',
+            16:'Lower East Side',   17:'Financial District N', 18:'Sutton Place/Turtle Bay N',
+        }
+        for zid, zname in famous.items():
+            zone_lookup.loc[zone_lookup['zone_id'] == zid, 'zone_name'] = zname
 
     df = df.merge(
         zone_lookup.rename(columns={'zone_id':'pickup_location_id','zone_name':'pickup_zone_name','borough':'pickup_borough'}),
@@ -545,7 +547,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # ── LOAD DATA ─────────────────────────────────────────────────
-with st.spinner("🗽 Memuat & memproses data NYC Taxi 2022..."):
+with st.spinner("🗽 Memuat & memproses data NYC Taxi 2022 dari BigQuery..."):
     df_full = load_and_prepare_data()
 
 df = df_full[
