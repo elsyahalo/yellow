@@ -246,7 +246,7 @@ def load_and_prepare_data():
             AND pickup_datetime IS NOT NULL
             AND dropoff_datetime IS NOT NULL
         ORDER BY RAND()
-        LIMIT 500000
+        LIMIT 100000
     """
     raw_df = client.query(query).to_dataframe()
     df = raw_df.copy()
