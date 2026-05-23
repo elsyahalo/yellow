@@ -659,7 +659,7 @@ with tab_eda:
                 y=df[col_name].dropna(), name=col_name,
                 marker_color=bcolor, line_color=bcolor,
                 boxmean=True,
-                fillcolor=bcolor + '55',
+                fillcolor='rgba({},{},{},{})'.format(int(bcolor[1:3],16), int(bcolor[3:5],16), int(bcolor[5:7],16), 0.33),
             ))
             med_val = df[col_name].median()
             fig_box.update_layout(
@@ -1242,7 +1242,7 @@ with tab_q3:
             mode='lines+markers', name='Total Trips',
             line=dict(color=COLORS[0], width=2.5),
             marker=dict(size=10, color=COLORS[0], line=dict(color='white',width=1.5)),
-            fill='tozeroy', fillcolor=COLORS[0]+'1a',
+            fill='tozeroy', fillcolor='rgba({},{},{},{})'.format(int(COLORS[0][1:3],16), int(COLORS[0][3:5],16), int(COLORS[0][5:7],16), 0.10),
         ))
         # Annotate nilai (sesuai IPYNB)
         for x_val, y_val in zip(monthly['pickup_month'], monthly['total_trips']):
@@ -1267,7 +1267,7 @@ with tab_q3:
             mode='lines+markers', name='Revenue (Juta USD)',
             line=dict(color=COLORS[2], width=2.5),
             marker=dict(size=10, color=COLORS[2], line=dict(color='white',width=1.5)),
-            fill='tozeroy', fillcolor=COLORS[2]+'1a',
+            fill='tozeroy', fillcolor='rgba({},{},{},{})'.format(int(COLORS[2][1:3],16), int(COLORS[2][3:5],16), int(COLORS[2][5:7],16), 0.10),
         ))
         fig_rev.update_layout(**PLOTLY_LAYOUT,
                               title="Total Pendapatan per Bulan (Juta USD)",
@@ -1365,7 +1365,7 @@ with tab_q3:
             x=weekly['pickup_week'], y=weekly['total_trips'],
             mode='lines', name='Weekly Trips',
             line=dict(color=COLORS[0], width=2),
-            fill='tozeroy', fillcolor=COLORS[0]+'1a'
+            fill='tozeroy', fillcolor='rgba({},{},{},{})'.format(int(COLORS[0][1:3],16), int(COLORS[0][3:5],16), int(COLORS[0][5:7],16), 0.10)
         ))
         fig_wk.update_layout(**PLOTLY_LAYOUT,
                              title="Tren Mingguan Jumlah Perjalanan",
