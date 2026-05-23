@@ -1423,7 +1423,7 @@ with tab_q4:
     pay_counts['Proporsi (%)'] = (pay_counts['Jumlah Trip'] / pay_counts['Jumlah Trip'].sum() * 100).round(2)
 
     top1 = pay_counts.iloc[0]
-    top2 = pay_counts.iloc[1]
+    top2 = pay_counts.iloc[1] if len(pay_counts) > 1 else pay_counts.iloc[0]
 
     p1,p2,p3 = st.columns(3)
     for col,icon,label,val,sub in [
@@ -1557,7 +1557,7 @@ with tab_summary:
         peak_m_s = low_m_s = "N/A"; peak_h_s = 0
 
     try:
-        top1_s = pay_counts.iloc[0]; top2_s = pay_counts.iloc[1]
+        top1_s = pay_counts.iloc[0]; top2_s = pay_counts.iloc[1] if len(pay_counts) > 1 else pay_counts.iloc[0]
     except:
         top1_s = top2_s = None
 
