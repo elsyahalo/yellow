@@ -82,7 +82,7 @@ html, body, [class*="css"] {{
     font-family: 'Inter', sans-serif;
 }}
 
-/* Animated background : safe gradient shift */
+/* Animated background */
 .stApp {{
     background-color: {C['bg_main']} !important;
     background-image:
@@ -116,6 +116,27 @@ html, body, [class*="css"] {{
 [data-testid="stSidebar"] label {{
     color: {C['text_main']} !important;
     font-weight: 600 !important;
+}}
+
+/* ── Yellow checkbox vibes for month & day filters ── */
+[data-testid="stSidebar"] [data-testid="stCheckbox"] label p {{
+    color: #F5C518 !important;
+    font-weight: 700 !important;
+    font-size: 0.78rem !important;
+    -webkit-text-fill-color: #F5C518 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stCheckbox"] [data-baseweb="checkbox"] > div:first-child {{
+    border-color: #F5C518 !important;
+    background-color: transparent !important;
+}}
+[data-testid="stSidebar"] [data-testid="stCheckbox"] [data-checked="true"] > div:first-child,
+[data-testid="stSidebar"] [data-testid="stCheckbox"] [data-baseweb="checkbox"][data-checked="true"] > div:first-child {{
+    background-color: #F5C518 !important;
+    border-color: #F5C518 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stCheckbox"] svg {{
+    fill: #1a1a1a !important;
+    color: #1a1a1a !important;
 }}
 
 /* KPI Cards */
@@ -311,7 +332,7 @@ html, body, [class*="css"] {{
 /* Alert */
 [data-testid="stAlert"] {{ border-radius: 12px !important; border-left-color: {C['accent4']} !important; }}
 
-/* General text: force visibility in both modes */
+/* General text */
 p, li {{ color: {C['text_main']} !important; }}
 label {{ color: {C['text_main']} !important; }}
 h1, h2, h3, h4, h5 {{ color: {C['text_main']} !important; }}
@@ -339,7 +360,7 @@ code {{ color: {C['accent3']} !important; background: {C['accent5']}88 !importan
 /* Warning */
 [data-testid="stAlert"] {{ background: {C['bg_card2']} !important; color: {C['text_main']} !important; }}
 
-/* Force Plotly axis tick labels to be visible in light mode */
+/* Force Plotly axis tick labels */
 .js-plotly-plot .plotly .gtitle {{ fill: {C['text_main']} !important; }}
 .js-plotly-plot .plotly .xtick text,
 .js-plotly-plot .plotly .ytick text,
@@ -380,7 +401,6 @@ PLOTLY_LAYOUT = dict(
     ),
 )
 
-# Helper: apply after update_layout to fix axis label colors in light mode
 def fix_axes(fig):
     fig.update_xaxes(
         tickfont=dict(color=C['text_main'], size=11),
@@ -403,15 +423,11 @@ AXIS_STYLE = dict(
     color=C['text_main'],
 )
 
-#  DATA LOADING & FEATURE ENGINEERING  (sama persis dgn IPYNB)
+#  DATA LOADING & FEATURE ENGINEERING
 @st.cache_data(show_spinner=False)
 def load_and_prepare_data():
-    """
-    Simulasi data dari BigQuery public dataset nyc_taxi 2022.
-    Variabel, distribusi, dan feature engineering IDENTIK dengan IPYNB.
-    """
     np.random.seed(42)
-    N = 500_000   # 500K observasi sesuai analisis
+    N = 500_000
 
     start = pd.Timestamp("2022-01-01")
     end   = pd.Timestamp("2022-12-31 23:59:59")
@@ -420,19 +436,15 @@ def load_and_prepare_data():
     )
 
     trip_distance = np.random.lognormal(mean=0.85, sigma=0.9, size=N).clip(0.1, 60)
-
     trip_duration_minutes = (trip_distance * 4.2 +
                               np.random.normal(0, 5, N)).clip(1, 180)
-
     passenger_count = np.random.choice([1,2,3,4,5,6],
                                         N, p=[0.55,0.20,0.10,0.07,0.05,0.03])
-
     rate_code = np.random.choice([1,2,3,4,5,6], N, p=[0.82,0.08,0.04,0.02,0.02,0.02])
 
     base_fare = (trip_distance * 2.5 +
                   trip_duration_minutes * 0.5 +
                   np.random.normal(3.5, 2.0, N))
-    # JFK surcharge
     jfk_mask = rate_code == 2
     base_fare[jfk_mask] += 17.5
     fare_amount = base_fare.clip(2.5, 200)
@@ -441,9 +453,8 @@ def load_and_prepare_data():
                     fare_amount * np.random.uniform(0.10, 0.25, N), 0)
     total_amount = (fare_amount + tips + 0.5 + 0.3).clip(3, 250)
 
-    # Weighted: Manhattan zones lebih banyak
     loc_weights = np.ones(263)
-    loc_weights[0:50] = 5   # Manhattan high density
+    loc_weights[0:50] = 5
     loc_weights /= loc_weights.sum()
     pickup_location_id  = np.random.choice(np.arange(1,264), N, p=loc_weights)
     dropoff_location_id = np.random.choice(np.arange(1,264), N, p=loc_weights)
@@ -495,7 +506,6 @@ def load_and_prepare_data():
                                        p=[0.40,0.25,0.20,0.10,0.03,0.02]),
     })
 
-    # Famous Manhattan zones override
     famous = {
         1:'JFK Airport',      2:'LaGuardia Airport', 3:'Midtown Center',
         4:'Upper East Side N',5:'Penn Station/MSG',  6:'Times Sq/Theatre District',
@@ -505,14 +515,12 @@ def load_and_prepare_data():
     for zid, zname in famous.items():
         zone_lookup.loc[zone_lookup['zone_id'] == zid, 'zone_name'] = zname
 
-    # Merge pickup zone
     df = df.merge(
         zone_lookup.rename(columns={'zone_id':'pickup_location_id',
                                      'zone_name':'pickup_zone_name',
                                      'borough':'pickup_borough'}),
         on='pickup_location_id', how='left'
     )
-    # Merge dropoff zone
     df = df.merge(
         zone_lookup.rename(columns={'zone_id':'dropoff_location_id',
                                      'zone_name':'dropoff_zone_name',
@@ -528,7 +536,7 @@ def load_and_prepare_data():
 
     return df
 
-#  ML PIPELINE  (sama dgn IPYNB)
+#  ML PIPELINE
 @st.cache_resource(show_spinner=False)
 def run_rf_model(df):
     le = LabelEncoder()
@@ -656,25 +664,55 @@ with st.sidebar:
 
     st.markdown(f"<div style='height:1px; background:linear-gradient(90deg,transparent,{C['border']}44,transparent); margin:14px 0;'></div>", unsafe_allow_html=True)
     st.markdown(f"<div style='font-size:0.75rem;font-weight:800;color:{C['accent1']};letter-spacing:2px;margin-bottom:4px;text-transform:uppercase;'>🔧 Filter Data</div>", unsafe_allow_html=True)
-    st.markdown(f"<div style='font-size:0.71rem;color:{C['text_muted']};margin-bottom:12px;'>Filter global untuk semua visualisasi</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:0.71rem;color:{C['text_muted']};margin-bottom:14px;'>Filter global untuk semua visualisasi</div>", unsafe_allow_html=True)
 
-    selected_months = st.multiselect(
-        "📅 Pilih Bulan",
-        options=list(range(1,13)),
-        default=list(range(1,13)),
-        format_func=lambda m: ['Jan','Feb','Mar','Apr','Mei','Jun',
-                               'Jul','Agu','Sep','Okt','Nov','Des'][m-1]
+    # ── Pilih Bulan : checkbox kuning 4-kolom ──────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.73rem;font-weight:800;color:#F5C518;"
+        "letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;'>"
+        "📅 Pilih Bulan</div>",
+        unsafe_allow_html=True
     )
-    selected_dow = st.multiselect(
-        "📆 Hari dalam Seminggu",
-        options=[0,1,2,3,4,5,6],
-        default=[0,1,2,3,4,5,6],
-        format_func=lambda d: ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'][d]
+    _month_names = ['Jan','Feb','Mar','Apr','Mei','Jun',
+                    'Jul','Agu','Sep','Okt','Nov','Des']
+    _mca = st.columns(4)
+    _mcb = st.columns(4)
+    _mcc = st.columns(4)
+    _all_mc = _mca + _mcb + _mcc
+    selected_months = []
+    for _mi, (_mc, _mn) in enumerate(zip(_all_mc, _month_names)):
+        with _mc:
+            if st.checkbox(_mn, value=True, key=f"month_{_mi+1}"):
+                selected_months.append(_mi + 1)
+    if not selected_months:
+        selected_months = list(range(1, 13))
+
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+    # ── Hari dalam Seminggu : checkbox kuning ─────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.73rem;font-weight:800;color:#F5C518;"
+        "letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;'>"
+        "📆 Hari dalam Seminggu</div>",
+        unsafe_allow_html=True
     )
+    _day_names = ['Sen','Sel','Rab','Kam','Jum','Sab','Min']
+    _dca = st.columns(4)
+    _dcb = st.columns(3)
+    _all_dc = _dca + _dcb
+    selected_dow = []
+    for _di, (_dc, _dn) in enumerate(zip(_all_dc, _day_names)):
+        with _dc:
+            if st.checkbox(_dn, value=True, key=f"dow_{_di}"):
+                selected_dow.append(_di)
+    if not selected_dow:
+        selected_dow = list(range(7))
+
     hour_range = (0, 23)
     distance_range = (0, 50)
+
     st.markdown(f"""
-    <div style="font-size:0.74rem; color:{C['text_muted']}; text-align:center; line-height:2.0;">
+    <div style="font-size:0.74rem; color:{C['text_muted']}; text-align:center; line-height:2.0; margin-top:14px;">
         <b style="color:{C['accent2']}; font-size:0.76rem;">📦 Sumber Data</b><br>
         BigQuery Public Dataset<br>
         <code style="color:{C['accent3']}; background:{C['accent5']}; padding:2px 7px; border-radius:5px; font-size:0.70rem;">tlc_yellow_trips_2022</code><br><br>
@@ -909,7 +947,6 @@ with tab_q1:
     with st.spinner("🤖 Melatih Random Forest Regressor (n=100 trees)..."):
         res = run_rf_model(df)
 
-    # ── Simulator Prediksi Tarif : input langsung di tab ──────────────────
     st.markdown(f"""
     <div style="background:linear-gradient(135deg,{C['bg_card']},{C['bg_card2']});
                 border:2px solid {C['accent2']}44; border-radius:22px; padding:24px 28px;
@@ -932,7 +969,6 @@ with tab_q1:
         _hr    = st.slider("🕐 Jam Pickup", 0, 23, 8, key="sim_hr")
         _pass  = st.slider("👥 Jumlah Penumpang", 1, 6, 1, key="sim_pass")
 
-    # Akhir Pekan di tengah bawah keempat parameter
     st.markdown("""<div style='display:flex; justify-content:center; margin-top:8px;'>
     <span id='we-anchor'></span></div>""", unsafe_allow_html=True)
     _we_l, _we_m, _we_r = st.columns([2, 1, 2])
@@ -983,7 +1019,6 @@ with tab_q1:
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Metrik Model di bawah hasil tarif ─────────────────────────────────
     k1,k2,k3 = st.columns(3)
     metrics_rf = [
         (k1,"🎯","R² Score",       f"{res['r2']:.4f}", f"{res['r2']*100:.1f}% variansi dijelaskan"),
@@ -1003,7 +1038,6 @@ with tab_q1:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Chart: Actual vs Predicted & Residual ─────────────────────────────
     c1, c2 = st.columns(2)
     with c1:
         st.markdown(f"""
@@ -1048,7 +1082,6 @@ with tab_q1:
         st.plotly_chart(fig_res, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Feature Importance ────────────────────────────────────────────────
     st.markdown(f"""
     <div style="background:linear-gradient(145deg,{C['bg_card']},{C['bg_card2']});
                 border:1px solid {C['border']}33; border-radius:18px; padding:18px;
@@ -1363,7 +1396,6 @@ with tab_q3:
             values='fare_amount', index='pickup_hour',
             columns='pickup_dayofweek', aggfunc='count'
         )
-        # Rename only the columns that actually exist in filtered data
         day_map = dict(zip(range(7), ['Sen','Sel','Rab','Kam','Jum','Sab','Min']))
         pivot_hm.columns = [day_map[c] for c in pivot_hm.columns]
         fig_hmap = px.imshow(pivot_hm, aspect='auto',
@@ -1436,7 +1468,6 @@ with tab_q3:
     low_m   = monthly.loc[monthly['total_trips'].idxmin(), 'month_name']
     peak_h  = int(hourly_agg.loc[hourly_agg['total_trips'].idxmax(), 'pickup_hour'])
 
-    # Safe fallback untuk rush_comp jika salah satu kategori tidak ada di data terfilter
     _rush_row  = rush_comp.loc[rush_comp['is_rush_hour']==1,'avg_fare']
     _nrush_row = rush_comp.loc[rush_comp['is_rush_hour']==0,'avg_fare']
     rush_avg  = float(_rush_row.values[0])  if len(_rush_row)  > 0 else float(rush_comp['avg_fare'].mean())
@@ -1499,7 +1530,6 @@ with tab_q4:
 
     c1,c2 = st.columns([3,2])
     with c1:
-        # Bar chart
         fig_pay = px.bar(
             pay_counts, x='Metode Pembayaran', y='Jumlah Trip',
             title="Distribusi Jenis Pembayaran Customer NYC Taxi 2022",
@@ -1518,7 +1548,6 @@ with tab_q4:
         st.plotly_chart(fig_pay, use_container_width=True)
 
     with c2:
-        # Donut chart
         fig_donut = px.pie(
             pay_counts, names='Metode Pembayaran', values='Jumlah Trip',
             hole=0.55, title="Proporsi Metode Pembayaran",
@@ -1552,7 +1581,6 @@ with tab_q4:
         st.plotly_chart(fig_avg_pay, use_container_width=True)
 
     with c4:
-        # Payment by time of day
         pay_tod = df.groupby(['time_of_day','payment_label'])['fare_amount'].count().reset_index()
         pay_tod.columns = ['Waktu','Metode','Jumlah']
         fig_pt = px.bar(
@@ -1598,7 +1626,6 @@ with tab_summary:
     st.markdown('<div class="section-sub">PROJECT ADBC : NYC Yellow Taxi 2022 | Full Pipeline Summary</div>', unsafe_allow_html=True)
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Dataset overview
     st.markdown(f"""
     <div style="background:linear-gradient(135deg,{C['bg_card']},{C['bg_card2']});
                 border:1px solid {C['border']}33; border-radius:18px; padding:24px;
@@ -1625,7 +1652,6 @@ with tab_summary:
             </div>""", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Ambil ulang hasil ML jika ada
     try:
         r2_val  = res['r2']
         mae_val = res['mae']
@@ -1740,7 +1766,7 @@ with tab_summary:
                 <div style="color:{C['accent4']}; font-weight:700; font-size:0.82rem;
                             letter-spacing:1.5px; margin-bottom:10px;">📈 BISNIS</div>
                 <ul style="color:{C['text_main']}; font-size:0.85rem; line-height:1.9; padding-left:18px; margin:0;">
-                    <li>Chassless perlu dipertahankan lewat insentif CC</li>
+                    <li>Cashless perlu dipertahankan lewat insentif CC</li>
                     <li>Strategi promosi pada bulan permintaan rendah untuk menaikkan volume</li>
                     <li>Cluster dari zona pinggiran kota menunjukkan tarif mahal karena perjalanannya jauh</li>
                 </ul>
