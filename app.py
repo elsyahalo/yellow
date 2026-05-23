@@ -223,8 +223,8 @@ def fix_axes(fig):
 # Load langsung dari BigQuery pakai service account dari st.secrets
 @st.cache_data(show_spinner=False)
 def load_and_prepare_data():
-    # Ambil credentials dari Streamlit secrets
-    creds_dict = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
+    # Ambil credentials dari Streamlit secrets (format TOML section [gcp_service_account])
+    creds_dict = dict(st.secrets["gcp_service_account"])
     credentials = service_account.Credentials.from_service_account_info(
         creds_dict,
         scopes=["https://www.googleapis.com/auth/bigquery.readonly"],
