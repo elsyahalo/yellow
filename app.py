@@ -365,9 +365,9 @@ def run_rf_model(df):
     X = df_m[FEATURES]; y = df_m[TARGET]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # n_estimators=300 sesuai IPYNB (bukan 100)
+    # n_estimators=50 untuk performa di Streamlit Cloud
     rf = RandomForestRegressor(
-        n_estimators=300,
+        n_estimators=50,
         max_depth=15,
         min_samples_split=10,
         min_samples_leaf=5,
@@ -382,10 +382,10 @@ def run_rf_model(df):
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     r2   = r2_score(y_test, y_pred)
     fi   = pd.Series(rf.feature_importances_, index=FEATURES).sort_values(ascending=False)
-    residuals = np.array(y_test) - y_pred  # sesuai IPYNB: y_test - y_pred
+    residuals = np.array(y_test) - y_pred
 
-    # Kurva RMSE per n_estimators (sesuai IPYNB: n_range = list(range(10, 310, 30)))
-    n_range = list(range(10, 310, 30))
+    # Kurva RMSE per n_estimators — pakai range kecil biar cepat
+    n_range = [10, 20, 30, 50]
     rmse_per_n = []
     for n in n_range:
         tmp = RandomForestRegressor(n_estimators=n, max_depth=15, min_samples_split=10,
