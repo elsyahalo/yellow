@@ -227,7 +227,7 @@ def load_and_prepare_data():
     creds_dict = dict(st.secrets["gcp_service_account"])
     credentials = service_account.Credentials.from_service_account_info(
         creds_dict,
-        scopes=["https://www.googleapis.com/auth/bigquery.readonly"],
+        scopes=["https://www.googleapis.com/auth/bigquery"],
     )
     client = bigquery.Client(credentials=credentials, project=creds_dict["project_id"])
 
