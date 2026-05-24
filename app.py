@@ -246,7 +246,7 @@ def load_and_prepare_data():
             AND pickup_datetime IS NOT NULL
             AND dropoff_datetime IS NOT NULL
         ORDER BY RAND()
-        LIMIT 100000
+        LIMIT 10000
     """
     raw_df = client.query(query).to_dataframe()
     df = raw_df.copy()
@@ -584,7 +584,7 @@ st.markdown(
     "<span>PROJECT ADBC</span><span style='opacity:0.4;'>·</span>"
     "<span>BigQuery Public Dataset</span><span style='opacity:0.4;'>·</span>"
     "<code style='color:" + C['accent3'] + ";background:" + C['accent5'] + ";padding:2px 8px;border-radius:6px;font-size:0.78rem;'>tlc_yellow_trips_2022</code>"
-    "<span style='opacity:0.4;'>·</span><span>500.000 Observasi</span></div>"
+    "<span style='opacity:0.4;'>·</span><span>10.000 Observasi</span></div>"
     "<div style='display:flex;flex-wrap:wrap;gap:8px;'>"
     "<span class='badge'>🤖 Random Forest</span>"
     "<span class='badge'>🗺️ K-Means</span>"
@@ -610,7 +610,7 @@ avg_dur     = df['trip_duration_minutes'].mean()
 
 col1,col2,col3,col4,col5 = st.columns(5)
 kpis = [
-    (col1,"🚖","Total Trip (Filtered)", f"{total_trips:,}",      "dari 500K sample"),
+    (col1,"🚖","Total Trip (Filtered)", f"{total_trips:,}",      "dari 10K sample"),
     (col2,"💵","Avg Fare",              f"${avg_fare:.2f}",       "per perjalanan"),
     (col3,"💰","Total Revenue",          f"${total_rev/1e6:.1f}M","USD estimasi"),
     (col4,"📏","Avg Jarak",              f"{avg_dist:.2f} mil",   "per trip"),
@@ -1523,7 +1523,7 @@ with tab_summary:
     info_data = [
         ("Platform","BigQuery Public Dataset"),
         ("Dataset","tlc_yellow_trips_2022"),
-        ("Ukuran","500.000 observasi"),
+        ("Ukuran","10.000 observasi"),
         ("Sampling","Stratified per hari"),
         ("Tahun","2022"),
     ]
